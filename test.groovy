@@ -44,7 +44,7 @@ parameterNames.add('requests_count')
 parametersList.add(
     booleanParam(
         name='run_main_variant',
-        defaultValue=True,
+        defaultValue=true,
         description='Products:\n'
                     '- Subscription:\n'
                     '-- Rule mode: Taper\n'
