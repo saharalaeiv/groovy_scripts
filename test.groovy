@@ -1,8 +1,8 @@
-#!groovy
-package regression_tests
+//Usage Regression Test
 
 def getGeneralTestParams() {
     return [
+        envId: 2,
         dbUrl: 'bigfoot-db-tract01.tract-staging.com',
         bapiCount: 4,
         bapiUrlTemplate: 'bapi-c6i0%s-bigfoot.perf.gtvtech.net',
@@ -43,8 +43,27 @@ parameterNames.add('requests_count')
 
 parametersList.add(
     booleanParam(
-        name: 'run_main_variant', defaultValue: true,
-        description: 'Products:\n- Subscription:\n-- Rule mode: Taper\n-- Rules:\n----- limited: 10,000;  text01=rate table; uom: SECOND;\n----- unlimited: text01=rate table; uom: SECOND;\nAccounts:\n- count: 1000;\n- orders: 1 subscription with SRID\nEvents:\n- mode: FAIL_ON_EXISTING;\n- uom: SECOND;\n- events count: 1,000,000;\n- SRIDs count:1000;\n- batch size: 500;\n- SRIDs in batch: batch 1{SRID1, SRID2..., SRID500}, batch2 {SRID501, SRID502,..., SRID1000}, batch3{SRID1...., SRID500}...\n'
+        name='run_main_variant',
+        defaultValue=True,
+        description='Products:\n'
+                    '- Subscription:\n'
+                    '-- Rule mode: Taper\n'
+                    '-- Rules:\n'
+                    '----- limited: 10,000; text01=rate table; uom: SECOND;\n'
+                    '----- unlimited: text01=rate table; uom: SECOND;\n'
+                    'Accounts:\n'
+                    '- count: 1000;\n'
+                    '- orders: 1 subscription with SRID\n'
+                    'Events:\n'
+                    '- mode: FAIL_ON_EXISTING;\n'
+                    '- uom: SECOND;\n'
+                    '- events count: 1,000,000;\n'
+                    '- SRIDs count:1000;\n'
+                    '- batch size: 500;\n'
+                    '- SRIDs in batch:\n'
+                    '  batch 1{SRID1, SRID2..., SRID500},\n'
+                    '  batch2 {SRID501, SRID502..., SRID1000},\n'
+                    '  batch3{SRID1...., SRID500}...\n'
     )
 )
 parameterNames.add('run_main_variant')
@@ -89,16 +108,13 @@ parameterNames.add('gitCredentials')
 
 properties([parameters(parametersList)])
 
-def missedParams = []
-for(int i = 0; i < parameterNames.size(); i++) {
-    if (null == params[parameterNames.get(i)] || ''.equals(params[parameterNames.get(i).toString().trim()])) {
-        missedParams.add(parameterNames.get(i))
-    }
-}
+def missedParams = parameterNames.findAll { !params[it]?.trim() }
 
-if (!missedParams.isEmpty()) {
+if (missedParams) {
+    def errorMessage = 'Not all parameters were specified. Please reload the page and provide following parameter(s): '
+                        + missedParams.join(', ')
     currentBuild.result = 'ERROR'
-    error('Not all parameters were specified. Try to reload the page. Missed Params ' + missedParams.toString())
+    error(errorMessage)
 }
 
 node {
@@ -147,13 +163,21 @@ node {
                             def results = null
                             def preconditions = null
                             node('util-box-2-perm-slave') {
-                                def configsProps = readProperties  file: getGeneralTestParams().scriptsFolder + '/configs/general_configs.properties'
-                                def jmeterShPath = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.jmeter'] + '/bin/jmeter.sh -n'
-                                def scriptPath = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.scripts'] + '/regression/usage_test.jmx'
-                                def resultsFolder = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.results'] + '/regression/usage_test/run' + currentBuild.number
-                                def dataFolder = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.results'] + '/regression/usage_preconditions/run' + currentBuild.number + '/'
-                                def envConfigs = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.configs.env'] + '/bigfoot.properties'
-                                def tenantConfigs = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.configs.tenant'] + '/bigfoot/tenant_9_regression.properties'
+                                def configsProps = readProperties  file: getGeneralTestParams().scriptsFolder +
+                                 '/configs/general_configs.properties'
+                                def jmeterShPath = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.jmeter'] + '/bin/jmeter.sh -n'
+                                def scriptPath = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.scripts'] + '/regression/usage_test.jmx'
+                                def resultsFolder = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.results'] + '/regression/usage_test/run' + currentBuild.number
+                                def dataFolder = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.results'] + '/regression/usage_preconditions/run' +
+                                 currentBuild.number + '/'
+                                def envConfigs = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.configs.env'] + '/bigfoot.properties'
+                                def tenantConfigs = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.configs.tenant'] + '/bigfoot/tenant_9_regression.properties'
 
                                 sh jmeterShPath +
                                     ' -t ' + scriptPath +
@@ -194,12 +218,12 @@ node {
                                 }
                             }
 
-                            if (null != results) {
+                            if (results) {
                                 writeFile(file: 'results_main.json', text: results)
                                 results = null
                             }
 
-                            if (null != preconditions) {
+                            if (preconditions) {
                                 writeFile(file: 'preconditions_main.json', text: preconditions)
                                 preconditions = null
                             }
@@ -234,14 +258,22 @@ node {
                                 def preconditions = null
 
                                 node('util-box-2-perm-slave') {
-                                    def configsProps = readProperties  file: getGeneralTestParams().scriptsFolder + '/configs/general_configs.properties'
-
-                                    def jmeterShPath = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.jmeter'] + '/bin/jmeter.sh -n'
-                                    def scriptPath = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.scripts'] + '/regression/usage_test.jmx'
-                                    def resultsFolder = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.results'] + '/regression/usage_test/variant1/run' + currentBuild.number
-                                    def dataFolder = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.results'] + '/regression/usage_preconditions/run' + currentBuild.number + '/'
-                                    def envConfigs = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.configs.env'] + '/bigfoot.properties'
-                                    def tenantConfigs = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.configs.tenant'] + '/bigfoot/tenant_9_regression.properties'
+                                    def configsProps = readProperties  file: getGeneralTestParams().scriptsFolder +
+                                     '/configs/general_configs.properties'
+                                    def jmeterShPath = getGeneralTestParams().scriptsFolder + '/' +
+                                     configsProps['folder.jmeter'] + '/bin/jmeter.sh -n'
+                                    def scriptPath = getGeneralTestParams().scriptsFolder + '/' +
+                                     configsProps['folder.scripts'] + '/regression/usage_test.jmx'
+                                    def resultsFolder = getGeneralTestParams().scriptsFolder + '/' +
+                                     configsProps['folder.results'] + '/regression/usage_test/variant1/run' +
+                                     currentBuild.number
+                                    def dataFolder = getGeneralTestParams().scriptsFolder + '/' +
+                                     configsProps['folder.results'] + '/regression/usage_preconditions/run' +
+                                     currentBuild.number + '/'
+                                    def envConfigs = getGeneralTestParams().scriptsFolder + '/' +
+                                     configsProps['folder.configs.env'] + '/bigfoot.properties'
+                                    def tenantConfigs = getGeneralTestParams().scriptsFolder + '/' +
+                                     configsProps['folder.configs.tenant'] + '/bigfoot/tenant_9_regression.properties'
 
                                     sh jmeterShPath +
                                         ' -t ' + scriptPath +
@@ -282,12 +314,12 @@ node {
                                     }
                                 }
 
-                                if (null != results) {
+                                if (results) {
                                     writeFile(file: 'results_variant_1.json', text: results)
                                     results = null
                                 }
 
-                                if (null != preconditions) {
+                                if (preconditions) {
                                     writeFile(file: 'preconditions_variant_1.json', text: preconditions)
                                     preconditions = null
                                 }
@@ -317,13 +349,19 @@ node {
                     if(params['run_variant_3']) {
                         def failedRequests = null
                         node('util-box-2-perm-slave') {
-                            def configsProps = readProperties  file: getGeneralTestParams().scriptsFolder + '/configs/general_configs.properties'
-
-                            def jmeterShPath = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.jmeter'] + '/bin/jmeter.sh -n'
-                            def scriptPath = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.scripts'] + '/regression/usage_preconditions.jmx'
-                            def resultsFolder = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.results'] + '/regression/usage_preconditions/variant3/run' + currentBuild.number
-                            def envConfigs = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.configs.env'] + '/bigfoot.properties'
-                            def tenantConfigs = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.configs.tenant'] + '/bigfoot/tenant_9_regression.properties'
+                            def configsProps = readProperties  file: getGeneralTestParams().scriptsFolder +
+                             '/configs/general_configs.properties'
+                            def jmeterShPath = getGeneralTestParams().scriptsFolder + '/' +
+                             configsProps['folder.jmeter'] + '/bin/jmeter.sh -n'
+                            def scriptPath = getGeneralTestParams().scriptsFolder + '/' +
+                             configsProps['folder.scripts'] + '/regression/usage_preconditions.jmx'
+                            def resultsFolder = getGeneralTestParams().scriptsFolder + '/' +
+                             configsProps['folder.results'] + '/regression/usage_preconditions/variant3/run' +
+                             currentBuild.number
+                            def envConfigs = getGeneralTestParams().scriptsFolder + '/' +
+                             configsProps['folder.configs.env'] + '/bigfoot.properties'
+                            def tenantConfigs = getGeneralTestParams().scriptsFolder + '/' +
+                             configsProps['folder.configs.tenant'] + '/bigfoot/tenant_9_regression.properties'
 
                             def shStatusCode = sh script: jmeterShPath +
                                 ' -t ' + scriptPath +
@@ -357,7 +395,7 @@ node {
                             }
                         }
 
-                        if (null != failedRequests) {
+                        if (failedRequests) {
                             writeFile(file: 'preconditions_variant_3_failed_requests.txt', text: failedRequests)
                             failedRequests = null
                         }
@@ -377,14 +415,21 @@ node {
                             def results = null
                             def preconditions = null
                             node('util-box-2-perm-slave') {
-                                def configsProps = readProperties  file: getGeneralTestParams().scriptsFolder + '/configs/general_configs.properties'
-
-                                def jmeterShPath = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.jmeter'] + '/bin/jmeter.sh -n'
-                                def scriptPath = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.scripts'] + '/regression/usage_test.jmx'
-                                def resultsFolder = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.results'] + '/regression/usage_test/variant3/run' + currentBuild.number
-                                def dataFolder = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.results'] + '/regression/usage_preconditions/variant3/run' + currentBuild.number + '/'
-                                def envConfigs = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.configs.env'] + '/bigfoot.properties'
-                                def tenantConfigs = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.configs.tenant'] + '/bigfoot/tenant_9_regression.properties'
+                                def configsProps = readProperties  file: getGeneralTestParams().scriptsFolder +
+                                 '/configs/general_configs.properties'
+                                def jmeterShPath = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.jmeter'] + '/bin/jmeter.sh -n'
+                                def scriptPath = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.scripts'] + '/regression/usage_test.jmx'
+                                def resultsFolder = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.results'] + '/regression/usage_test/variant3/run' + currentBuild.number
+                                def dataFolder = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.results'] + '/regression/usage_preconditions/variant3/run' +
+                                 currentBuild.number + '/'
+                                def envConfigs = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.configs.env'] + '/bigfoot.properties'
+                                def tenantConfigs = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.configs.tenant'] + '/bigfoot/tenant_9_regression.properties'
 
                                 sh jmeterShPath +
                                     ' -t ' + scriptPath +
@@ -425,12 +470,12 @@ node {
                                 }
                             }
 
-                            if (null != results) {
+                            if (results) {
                                 writeFile(file: 'results_variant_3.json', text: results)
                                 results = null
                             }
 
-                            if (null != preconditions) {
+                            if (preconditions) {
                                 writeFile(file: 'preconditions_variant_3.json', text: preconditions)
                                 preconditions = null
                             }
@@ -457,13 +502,19 @@ node {
                     if(params['run_variant_4']) {
                         def failedRequests = null
                         node('util-box-2-perm-slave') {
-                            def configsProps = readProperties  file: getGeneralTestParams().scriptsFolder + '/configs/general_configs.properties'
-
-                            def jmeterShPath = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.jmeter'] + '/bin/jmeter.sh -n'
-                            def scriptPath = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.scripts'] + '/regression/usage_preconditions.jmx'
-                            def resultsFolder = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.results'] + '/regression/usage_preconditions/variant4/run' + currentBuild.number
-                            def envConfigs = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.configs.env'] + '/bigfoot.properties'
-                            def tenantConfigs = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.configs.tenant'] + '/bigfoot/tenant_9_regression.properties'
+                            def configsProps = readProperties  file: getGeneralTestParams().scriptsFolder +
+                             '/configs/general_configs.properties'
+                            def jmeterShPath = getGeneralTestParams().scriptsFolder + '/' +
+                             configsProps['folder.jmeter'] + '/bin/jmeter.sh -n'
+                            def scriptPath = getGeneralTestParams().scriptsFolder + '/' +
+                             configsProps['folder.scripts'] + '/regression/usage_preconditions.jmx'
+                            def resultsFolder = getGeneralTestParams().scriptsFolder + '/' +
+                             configsProps['folder.results'] + '/regression/usage_preconditions/variant4/run' +
+                             currentBuild.number
+                            def envConfigs = getGeneralTestParams().scriptsFolder + '/' +
+                             configsProps['folder.configs.env'] + '/bigfoot.properties'
+                            def tenantConfigs = getGeneralTestParams().scriptsFolder + '/' +
+                             configsProps['folder.configs.tenant'] + '/bigfoot/tenant_9_regression.properties'
 
                             def shStatusCode = sh script: jmeterShPath +
                                 ' -t ' + scriptPath +
@@ -497,7 +548,7 @@ node {
                             }
                         }
 
-                        if (null != failedRequests) {
+                        if (failedRequests) {
                             writeFile(file: 'preconditions_variant_4_failed_requests.txt', text: failedRequests)
                             failedRequests = null
                         }
@@ -517,14 +568,22 @@ node {
                             def results = null
                             def preconditions = null
                             node('util-box-2-perm-slave') {
-                                def configsProps = readProperties  file: getGeneralTestParams().scriptsFolder + '/configs/general_configs.properties'
-
-                                def jmeterShPath = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.jmeter'] + '/bin/jmeter.sh -n'
-                                def scriptPath = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.scripts'] + '/regression/usage_test.jmx'
-                                def resultsFolder = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.results'] + '/regression/usage_test/variant4/run' + currentBuild.number
-                                def dataFolder = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.results'] + '/regression/usage_preconditions/variant4/run' + currentBuild.number + '/'
-                                def envConfigs = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.configs.env'] + '/bigfoot.properties'
-                                def tenantConfigs = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.configs.tenant'] + '/bigfoot/tenant_9_regression.properties'
+                                def configsProps = readProperties  file: getGeneralTestParams().scriptsFolder +
+                                 '/configs/general_configs.properties'
+                                def jmeterShPath = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.jmeter'] + '/bin/jmeter.sh -n'
+                                def scriptPath = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.scripts'] + '/regression/usage_test.jmx'
+                                def resultsFolder = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.results'] + '/regression/usage_test/variant4/run' +
+                                 currentBuild.number
+                                def dataFolder = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.results'] + '/regression/usage_preconditions/variant4/run' +
+                                 currentBuild.number + '/'
+                                def envConfigs = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.configs.env'] + '/bigfoot.properties'
+                                def tenantConfigs = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.configs.tenant'] + '/bigfoot/tenant_9_regression.properties'
 
                                 sh jmeterShPath +
                                     ' -t ' + scriptPath +
@@ -565,12 +624,12 @@ node {
                                 }
                             }
 
-                            if (null != results) {
+                            if (results) {
                                 writeFile(file: 'results_variant_4.json', text: results)
                                 results = null
                             }
 
-                            if (null != preconditions) {
+                            if (preconditions) {
                                 writeFile(file: 'preconditions_variant_4.json', text: preconditions)
                                 preconditions = null
                             }
@@ -597,13 +656,19 @@ node {
                     if(params['run_variant_5']) {
                         def failedRequests = null
                         node('util-box-2-perm-slave') {
-                            def configsProps = readProperties  file: getGeneralTestParams().scriptsFolder + '/configs/general_configs.properties'
-
-                            def jmeterShPath = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.jmeter'] + '/bin/jmeter.sh -n'
-                            def scriptPath = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.scripts'] + '/regression/usage_preconditions.jmx'
-                            def resultsFolder = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.results'] + '/regression/usage_preconditions/variant5/run' + currentBuild.number
-                            def envConfigs = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.configs.env'] + '/bigfoot.properties'
-                            def tenantConfigs = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.configs.tenant'] + '/bigfoot/tenant_9_regression.properties'
+                            def configsProps = readProperties  file: getGeneralTestParams().scriptsFolder +
+                             '/configs/general_configs.properties'
+                            def jmeterShPath = getGeneralTestParams().scriptsFolder + '/' +
+                             configsProps['folder.jmeter'] + '/bin/jmeter.sh -n'
+                            def scriptPath = getGeneralTestParams().scriptsFolder + '/' +
+                             configsProps['folder.scripts'] + '/regression/usage_preconditions.jmx'
+                            def resultsFolder = getGeneralTestParams().scriptsFolder + '/' +
+                             configsProps['folder.results'] + '/regression/usage_preconditions/variant5/run' +
+                              currentBuild.number
+                            def envConfigs = getGeneralTestParams().scriptsFolder + '/' +
+                             configsProps['folder.configs.env'] + '/bigfoot.properties'
+                            def tenantConfigs = getGeneralTestParams().scriptsFolder + '/' +
+                             configsProps['folder.configs.tenant'] + '/bigfoot/tenant_9_regression.properties'
 
                             def shStatusCode = sh script: jmeterShPath +
                                 ' -t ' + scriptPath +
@@ -637,7 +702,7 @@ node {
                             }
                         }
 
-                        if (null != failedRequests) {
+                        if (failedRequests) {
                             writeFile(file: 'preconditions_failed_requests.txt', text: failedRequests)
                             failedRequests = null
                         }
@@ -657,16 +722,26 @@ node {
                             def results = null
                             def preconditions = null
                             node('util-box-2-perm-slave') {
-                                def configsProps = readProperties  file: getGeneralTestParams().scriptsFolder + '/configs/general_configs.properties'
-
-                                def jmeterShPath = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.jmeter'] + '/bin/jmeter.sh -n'
-                                def scriptPath = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.scripts'] + '/regression/usage_test_3users.jmx'
-                                def resultsFolder = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.results'] + '/regression/usage_test/variant5/run' + currentBuild.number
-                                def dataFolder = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.results'] + '/regression/usage_preconditions/variant5/run' + currentBuild.number + '/'
-                                def envConfigs = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.configs.env'] + '/bigfoot.properties'
-                                def tenant1Configs = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.configs.tenant'] + '/bigfoot/tenant_9_regression.properties'
-                                def tenant2Configs = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.configs.tenant'] + '/bigfoot/tenant_9_regression_user2.properties'
-                                def tenant3Configs = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.configs.tenant'] + '/bigfoot/tenant_9_regression_user3.properties'
+                                def configsProps = readProperties  file: getGeneralTestParams().scriptsFolder +
+                                 '/configs/general_configs.properties'
+                                def jmeterShPath = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.jmeter'] + '/bin/jmeter.sh -n'
+                                def scriptPath = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.scripts'] + '/regression/usage_test_3users.jmx'
+                                def resultsFolder = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.results'] + '/regression/usage_test/variant5/run' +
+                                 currentBuild.number
+                                def dataFolder = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.results'] + '/regression/usage_preconditions/variant5/run' +
+                                 currentBuild.number + '/'
+                                def envConfigs = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.configs.env'] + '/bigfoot.properties'
+                                def tenant1Configs = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.configs.tenant'] + '/bigfoot/tenant_9_regression.properties'
+                                def tenant2Configs = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.configs.tenant'] + '/bigfoot/tenant_9_regression_user2.properties'
+                                def tenant3Configs = getGeneralTestParams().scriptsFolder + '/' +
+                                 configsProps['folder.configs.tenant'] + '/bigfoot/tenant_9_regression_user3.properties'
 
                                 sh jmeterShPath +
                                     ' -t ' + scriptPath +
@@ -709,12 +784,12 @@ node {
                                 }
                             }
 
-                            if (null != results) {
+                            if (results) {
                                 writeFile(file: 'results_main.json', text: results)
                                 results = null
                             }
 
-                            if (null != preconditions) {
+                            if (preconditions) {
                                 writeFile(file: 'preconditions_main.json', text: preconditions)
                                 preconditions = null
                             }
@@ -738,18 +813,36 @@ node {
 
             } finally {
                 stage('save instance\'s properties') {
-                    sh 'mkdir configs'
                     for (int i = 0; i < getGeneralTestParams().bapiCount; i++) {
-                        sshagent (credentials: ['deployer']) {
+                        sshagent(credentials: ['deployer']) {
                             String bapiUrl = String.format(getGeneralTestParams().bapiUrlTemplate, i+1)
-                            sh 'ssh -o StrictHostKeyChecking=no -l deployer ' + bapiUrl + ' "sudo cat /opt/billing_api/conf/billing.properties | sed \'s/\\(.*pass[^=]*=\\)\\(.*\\)/\\1****/g\'" > configs/bapi_' + i+1 + '_billing.properties'
+                            def remoteFile = '/opt/billing_api/conf/billing.properties'
+                            def localFile = "configs/bapi_${i+1}_billing.properties"
+
+                            try {
+                                sh """
+                                    ssh -o StrictHostKeyChecking=no -i /path/to/private/key -l deployer '${bapiUrl}' \
+                                    "sudo cat '${remoteFile}' | sed 's/\\(.*pass[^=]*=\\)\\(.*\\)/\\1****/g'" \
+                                    > '${localFile}'
+                                """
+                            } catch (Exception ex) {
+                                println "Error: ${ex.getMessage()}"
+                            }
                         }
                     }
                 }
                 stage('archive results') {
-                    sh 'ls -la'
-                    zip(zipFile: 'configs.zip', archive: false, dir: 'configs')
-                    archiveArtifacts(artifacts: 'configs/*.xml, configs/*.properties, *.txt, *.jtl, *.zip, *.json')
+                    try {
+                        def archiveFileTypes = '*.xml, *.properties, *.txt, *.jtl, *.zip, *.json'
+                        def archiveDir = 'configs'
+                        def archiveName = 'configs.zip'
+
+                        sh 'ls -la'
+                        zip(zipFile: archiveName, dir: archiveDir)
+                        archiveArtifacts(artifacts: archiveFileTypes)
+                    } catch (Exception ex) {
+                        println "Error: ${ex.getMessage()}"
+                    }
                 }
             }
         }
@@ -759,13 +852,18 @@ node {
 def createPreconditionsMain() {
     def failedRequests = null
     node('util-box-2-perm-slave') {
-        def configsProps = readProperties  file: getGeneralTestParams().scriptsFolder + '/configs/general_configs.properties'
-
-        def jmeterShPath = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.jmeter'] + '/bin/jmeter.sh -n'
-        def scriptPath = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.scripts'] + '/regression/usage_preconditions.jmx'
-        def resultsFolder = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.results'] + '/regression/usage_preconditions/run' + currentBuild.number
-        def envConfigs = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.configs.env'] + '/bigfoot.properties'
-        def tenantConfigs = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.configs.tenant'] + '/bigfoot/tenant_9_regression.properties'
+        def configsProps = readProperties  file: getGeneralTestParams().scriptsFolder +
+         '/configs/general_configs.properties'
+        def jmeterShPath = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.jmeter'] +
+         '/bin/jmeter.sh -n'
+        def scriptPath = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.scripts'] +
+         '/regression/usage_preconditions.jmx'
+        def resultsFolder = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.results'] +
+         '/regression/usage_preconditions/run' + currentBuild.number
+        def envConfigs = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.configs.env'] +
+         '/bigfoot.properties'
+        def tenantConfigs = getGeneralTestParams().scriptsFolder + '/' + configsProps['folder.configs.tenant'] +
+         '/bigfoot/tenant_9_regression.properties'
 
         def shStatusCode = sh script: jmeterShPath +
             ' -t ' + scriptPath +
@@ -799,32 +897,56 @@ def createPreconditionsMain() {
         }
     }
 
-    if (null != failedRequests) {
+    if (failedRequests) {
         writeFile(file: 'preconditions_failed_requests.txt', text: failedRequests)
         failedRequests = null
     }
 }
 
 def collectInfrastructureMetrics(String testRunUUID) {
-    if (null == testRunUUID) {
-        echo 'Collecting infrastructure metrics is skipped because testRunUUID is null'
-    } else {
-        build job: 'bigfoot-test_scripts-collect_infrastructure_metrics', parameters: [
-                string(name: 'run_uuid', value: testRunUUID),
+    if (!testRunUUID) {
+        try {
+            build job: 'bigfoot-test_scripts-collect_infrastructure_metrics', parameters: [
+                string(name: 'run_uuid', value: "${testRunUUID}"),
                 string(name: 'test_name', value: 'UsageRegressionTest')
-        ]
+            ]
+        } catch (Exception ex) {
+            echo "Error collecting infrastructure metrics: ${ex.getMessage()}"
+        }
+    } else {
+        echo 'Skipping infrastructure metrics collection because testRunUUID is null'
     }
 }
 
 def isServiceActive(String url, String service) {
+    if (!url || !service) {
+        throw new IllegalArgumentException("url and service parameters cannot be null or empty")
+    }
     sshagent (credentials: ['deployer']) {
-        def status = sh(returnStdout: true, script: 'ssh -o StrictHostKeyChecking=no -l deployer '+ url + ' "sudo systemctl show -p ActiveState ' + service + '"').toString().trim()
-        echo 'status: ' + status + '; isActive: ' + status.equals('ActiveState=active')
-        return status.equals('ActiveState=active')
+        def cmd = "ssh -o StrictHostKeyChecking=no -l deployer ${url} \"systemctl is-active ${service}\""
+        try {
+            def status = sh(returnStdout: true, script: cmd).trim()
+            return status == 'active'
+        } catch (Exception ex) {
+            echo "Error executing command: ${ex.getMessage()}"
+            return false
+        }
     }
 }
 
 def getDBSize() {
-    def dbSizeFileLines = sh(returnStdout: true, script: 'ssh -o StrictHostKeyChecking=no -l deployer ' + getGeneralTestParams().dbUrl + ' df --output=used --total').split('\n')
-    return dbSizeFileLines[dbSizeFileLines.length - 1]
+    def dbUrl = getGeneralTestParams().dbUrl
+    def dbUser = getGeneralTestParams().dbUser
+    def dbPassword = getGeneralTestParams().dbPassword
+
+    // Use a more targeted command to retrieve the database size
+    def cmd = "sshpass -p ${dbPassword} ssh -o StrictHostKeyChecking=no -l ${dbUser} ${dbUrl} du -sh /var/lib/mysql"
+
+    try {
+        def dbSize = sh(returnStdout: true, script: cmd).trim()
+        return dbSize
+    } catch (Exception ex) {
+        echo "Error executing command: ${ex.getMessage()}"
+        return "Unknown"
+    }
 }
